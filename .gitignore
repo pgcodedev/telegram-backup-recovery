@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.env
+.env.*
+
+# macOS
+.DS_Store
+
+# Telethon session files
+backup_session.session
+backup_session.session-journal
+*.session
+*.session-journal
+
+# Output and runtime data
+telegram_backup/
+
+# Flask instance folder
+instance/
