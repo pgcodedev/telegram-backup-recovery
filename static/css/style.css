@@ -545,6 +545,11 @@ html, body {
   margin-top: 20px;
 }
 
+@media (max-width: 900px) {
+  .archive-layout { grid-template-columns: 1fr; }
+  .sidebar, .content { min-height: auto; }
+}
+
 @media (max-width: 700px) {
   .topbar { padding: 18px 20px; }
   .stage { padding: 10px 18px 140px; }
@@ -552,4 +557,9 @@ html, body {
   .step span:not(.dot) { display: none; }
   .sticky-footer { padding: 14px 20px; flex-direction: column; align-items: stretch; }
   .folder-picker { min-width: 0; }
+  .archive-shell { padding: 14px 12px 40px; }
+  .archive-card { padding: 14px; }
+  .panel-head { flex-direction: column; align-items: stretch; }
+  .archive-item, .message-card { padding: 12px; }
+  .media-chip { font-size: 0.75rem; }
 }
