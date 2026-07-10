@@ -14,22 +14,15 @@ channels your account can already access, including channels where
 [![Telethon](https://img.shields.io/badge/powered%20by-Telethon-2CA5E0.svg?logo=telegram)](https://docs.telethon.dev/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-**Keywords:** Telegram backup tool - Telethon Python GUI - download Telegram channel media - bypass restrict saving content - self-hosted Telegram downloader - Telegram cloud storage export - Flask Telegram web app
-
 </div>
 
 ---
 
 ## Why this exists
 
-Telegram channels are handy for storing old photos, documents, links, and
-other personal backups. If **"Restrict Saving Content"** was enabled on a
-channel, the official apps can block saving even when your current account
-is still a member.
+Telegram channels are handy for storing old photos, documents, links, and other personal backups. If **"Restrict Saving Content"** was enabled on a channel, the official Telegram apps will block saving even when your current account is still a member.
 
-This app uses [Telethon](https://docs.telethon.dev/) to talk to Telegram's
-API directly. Your account still has to be a real member of the channel.
-The app just saves the media and message text to disk.
+This self-hosted Flask web app uses [Telethon](https://docs.telethon.dev/) — a pure Python MTProto library — to talk to Telegram's API directly, bypassing that client-side restriction. Since your account is a real member of the channel, the server still delivers the media to it; this app just saves what you're already authorized to access. Your account credentials and all downloads stay entirely on your machine.
 
 > **This is for recovering your own data from channels you are a member
 > of.** It is not a tool for scraping or archiving other people's private
