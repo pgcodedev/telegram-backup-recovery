@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Telegram Backup Recovery</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<div class="bg-glow"></div>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">◆</span>
+    <span>Backup Recovery</span>
+  </div>
+  <div class="stepper" id="stepper">
+    <div class="step active" data-step="login"><span class="dot">1</span>Sign in</div>
+    <div class="step" data-step="channels"><span class="dot">2</span>Select channels</div>
+    <div class="step" data-step="download"><span class="dot">3</span>Download</div>
+  </div>
+</header>
+
+<main class="stage">
+
+  <!-- ===================== LOGIN PANEL ===================== -->
+  <section class="panel active" id="panel-login">
+    <div class="card auth-card">
+      <h1>Sign in to Telegram</h1>
+      <p class="muted">Use the account that is currently a member of your backup channels.</p>
+
+      <div class="field">
+        <label>API ID</label>
+        <input type="text" id="api_id" placeholder="e.g. 23841203" inputmode="numeric">
+      </div>
+      <div class="field">
+        <label>API Hash</label>
+        <input type="password" id="api_hash" placeholder="32-character hash">
+      </div>
+      <div class="field">
+        <label>Phone number</label>
+        <input type="text" id="phone" placeholder="+91XXXXXXXXXX">
+      </div>
+      <p class="hint">Get these from <a href="https://my.telegram.org" target="_blank" rel="noopener">my.telegram.org</a> → API Development Tools.</p>
+
+      <button class="btn primary" id="btn-send-code">
+        <span class="btn-label">Send code</span>
+        <span class="spinner hidden"></span>
+      </button>
+      <div class="error hidden" id="err-login"></div>
+    </div>
+
+    <div class="card auth-card hidden" id="card-otp">
+      <h1>Enter the code</h1>
+      <p class="muted">Telegram just sent a login code to your app or via SMS.</p>
+      <div class="field">
+        <label>Verification code</label>
+        <input type="text" id="otp" placeholder="12345" inputmode="numeric" autocomplete="one-time-code">
+      </div>
+      <button class="btn primary" id="btn-verify-code">
+        <span class="btn-label">Verify</span>
+        <span class="spinner hidden"></span>
+      </button>
+      <div class="error hidden" id="err-otp"></div>
+    </div>
+
+    <div class="card auth-card hidden" id="card-password">
+      <h1>Two-step verification</h1>
+      <p class="muted">This account has a cloud password enabled.</p>
+      <div class="field">
+        <label>Cloud password</label>
+        <input type="password" id="tfa_password" placeholder="Your Telegram password">
+      </div>
+      <button class="btn primary" id="btn-verify-password">
+        <span class="btn-label">Unlock</span>
+        <span class="spinner hidden"></span>
+      </button>
+      <div class="error hidden" id="err-password"></div>
+    </div>
+  </section>
+
+  <!-- ===================== CHANNEL PICKER PANEL ===================== -->
+  <section class="panel" id="panel-channels">
+    <div class="panel-head">
+      <div>
+        <h1>Choose channels to back up</h1>
+        <p class="muted">Everything your account belongs to. Look for the ones with no username - those are usually your private backups.</p>
+      </div>
+      <div class="panel-actions">
+        <input type="text" id="channel-search" placeholder="Filter by name...">
+        <button class="btn ghost" id="btn-refresh-channels">↻ Refresh</button>
+      </div>
+    </div>
+
+    <div class="channel-toolbar">
+      <label class="checkbox-inline">
+        <input type="checkbox" id="select-all"> Select all
+      </label>
+      <span class="muted" id="selection-count">0 selected</span>
+    </div>
+
+    <div class="channel-grid" id="channel-grid">
+      <!-- channel cards injected by JS -->
+    </div>
+
+    <div class="skeleton-grid" id="channel-skeleton">
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+      <div class="skeleton-card"></div>
+    </div>
+
+    <div class="sticky-footer">
+      <div class="folder-picker">
+        <label>Save to</label>
+        <input type="text" id="download-folder" placeholder="./telegram_backup">
+        <button class="btn ghost small" id="btn-choose-folder">Browse...</button>
+      </div>
+      <button class="btn primary large" id="btn-start-download" disabled>
+        Download selected
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================== DOWNLOAD PROGRESS PANEL ===================== -->
+  <section class="panel" id="panel-download">
+    <div class="card progress-card">
+      <div class="progress-head">
+        <div>
+          <h1 id="stage-title">Preparing...</h1>
+          <span class="stage-pill" id="stage-pill">Connecting</span>
+        </div>
+        <button class="btn stop-btn" id="btn-stop-download" title="Stop the backup immediately">
+          <span class="stop-icon"></span>
+          <span class="btn-label">Stop</span>
+        </button>
+      </div>
+
+      <div class="overall-progress">
+        <div class="progress-labels">
+          <span id="overall-label">0 of 0 channels</span>
+          <span id="overall-percent">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="overall-fill"></div>
+        </div>
+      </div>
+
+      <div class="current-channel-block" id="current-channel-block">
+        <div class="ccb-head">
+          <div class="ccb-avatar" id="ccb-avatar">?</div>
+          <div>
+            <div class="ccb-name" id="ccb-name">-</div>
+            <div class="ccb-sub" id="ccb-sub">Waiting to start...</div>
+          </div>
+        </div>
+        <div class="progress-track thin">
+          <div class="progress-fill accent" id="channel-fill"></div>
+        </div>
+        <div class="ccb-stats">
+          <div class="stat"><span class="stat-num" id="stat-media">0</span><span class="stat-label">files saved</span></div>
+          <div class="stat"><span class="stat-num" id="stat-text">0</span><span class="stat-label">messages logged</span></div>
+          <div class="stat"><span class="stat-num" id="stat-scanned">0</span><span class="stat-label">messages scanned</span></div>
+        </div>
+      </div>
+
+      <div class="log-console" id="log-console"></div>
+
+      <div class="progress-actions">
+        <button class="btn primary hidden" id="btn-open-folder">Open backup folder</button>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

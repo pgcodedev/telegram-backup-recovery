@@ -120,7 +120,7 @@ through any third-party server.
 ## 🚀 Quick start
 
 ```bash
-git clone https://github.com/<your-username>/telegram-backup-recovery.git
+git clone https://github.com/pgcodedev/telegram-backup-recovery.git
 cd telegram-backup-recovery
 python3 -m venv venv
 source venv/bin/activate
