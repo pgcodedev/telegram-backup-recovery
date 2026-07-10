@@ -29,7 +29,7 @@ import traceback
 import uuid
 from datetime import datetime
 
-from flask import Flask, request, jsonify, Response, render_template, stream_with_context
+from flask import Flask, request, jsonify, Response, render_template, stream_with_context, send_from_directory
 
 from telethon import TelegramClient, errors
 from telethon.tl.functions.channels import GetFullChannelRequest
@@ -38,6 +38,16 @@ from telethon.tl.types import Channel, Chat, User
 SESSION_NAME = "backup_session"
 
 app = Flask(__name__)
+
+
+def _safe_channel_name(name, index):
+    safe_name = "".join(c for c in name if c.isalnum() or c in " _-").strip() or f"channel_{index}"
+    return safe_name
+
+
+def _write_manifest(path, payload):
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, ensure_ascii=False, indent=2)
 
 
 # --------------------------------------------------------------------------
@@ -85,6 +95,62 @@ def get_client():
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/archive")
+def archive_page():
+    return render_template("archive.html")
+
+
+@app.route("/api/archives")
+def api_archives():
+    folder = (request.args.get("folder") or "").strip() or os.path.join(os.getcwd(), "telegram_backup")
+    if not os.path.isdir(folder):
+        return jsonify({"folder": folder, "channels": []})
+
+    channels = []
+    for entry in sorted(os.listdir(folder)):
+        channel_dir = os.path.join(folder, entry)
+        manifest_path = os.path.join(channel_dir, "channel_manifest.json")
+        if not os.path.isfile(manifest_path):
+            continue
+        try:
+            with open(manifest_path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+        except Exception:
+            continue
+        channels.append({
+            "name": data.get("name"),
+            "safe_name": data.get("safe_name"),
+            "folder": channel_dir,
+            "message_count": data.get("message_count", 0),
+            "media_count": data.get("media_count", 0),
+            "text_count": data.get("text_count", 0),
+            "downloaded_at": data.get("downloaded_at"),
+            "preview": data.get("messages", [{}])[-1] if data.get("messages") else None,
+        })
+
+    return jsonify({"folder": folder, "channels": channels})
+
+
+@app.route("/api/archive/<archive_name>")
+def api_archive(archive_name):
+    folder = (request.args.get("folder") or "").strip() or os.path.join(os.getcwd(), "telegram_backup")
+    channel_dir = os.path.join(folder, archive_name)
+    manifest_path = os.path.join(channel_dir, "channel_manifest.json")
+    if not os.path.isfile(manifest_path):
+        return jsonify({"error": "Archive not found."}), 404
+
+    with open(manifest_path, "r", encoding="utf-8") as handle:
+        data = json.load(handle)
+    return jsonify(data)
+
+
+@app.route("/archive/file/<archive_name>/<path:filename>")
+def archive_file(archive_name, filename):
+    folder = (request.args.get("folder") or "").strip() or os.path.join(os.getcwd(), "telegram_backup")
+    archive_dir = os.path.join(folder, archive_name)
+    return send_from_directory(archive_dir, filename, as_attachment=False)
 
 
 # --------------------------------------------------------------------------
@@ -352,11 +418,12 @@ def api_download():
         job_queue.put({"type": event_type, "ts": time.time(), **payload})
 
     async def download_channel(entity, name, index, total_channels):
-        safe_name = "".join(c for c in name if c.isalnum() or c in " _-").strip() or f"channel_{index}"
+        safe_name = _safe_channel_name(name, index)
         chan_dir = os.path.join(folder, safe_name)
         media_dir = os.path.join(chan_dir, "media")
         os.makedirs(media_dir, exist_ok=True)
         text_log_path = os.path.join(chan_dir, "messages_and_links.txt")
+        manifest_path = os.path.join(chan_dir, "channel_manifest.json")
 
         emit("channel_start", index=index, total_channels=total_channels, name=name)
 

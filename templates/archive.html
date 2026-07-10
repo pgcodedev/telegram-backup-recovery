@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archive Browser</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body { background: var(--bg-0); color: var(--text-0); }
+    .archive-shell { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+    .archive-card { background: var(--card); border: 1px solid var(--card-border); border-radius: var(--radius); padding: 20px; backdrop-filter: blur(20px); }
+    .archive-layout { display: grid; grid-template-columns: 320px 1fr; gap: 16px; }
+    .sidebar, .content { min-height: 70vh; }
+    .archive-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .archive-item { padding: 12px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); cursor: pointer; }
+    .archive-item.active { border-color: var(--accent); background: rgba(109,140,255,0.12); }
+    .archive-empty, .archive-message { padding: 20px; color: var(--text-1); }
+    .message-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+    .message-card { padding: 14px; border-radius: 12px; background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); }
+    .message-card .meta { color: var(--text-1); font-size: 0.8rem; margin-bottom: 6px; }
+    .media-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .media-chip { padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.06); font-size: 0.8rem; }
+    .media-chip a { color: var(--text-0); text-decoration: none; }
+    .pill-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+    .pill { padding: 5px 8px; border-radius: 999px; background: rgba(255,255,255,0.06); font-size: 0.75rem; color: var(--text-1); }
+    @media (max-width: 900px) {
+      .archive-layout { grid-template-columns: 1fr; }
+      .sidebar, .content { min-height: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="archive-shell">
+    <div class="archive-card">
+      <div class="panel-head">
+        <div>
+          <h1>Saved channels archive</h1>
+          <p class="muted">Browse your downloaded Telegram channels, messages, and media in a structured view.</p>
+        </div>
+        <a class="btn ghost" href="/">Back to backup</a>
+      </div>
+      <div class="archive-layout">
+        <aside class="sidebar">
+          <div class="field">
+            <label>Archive folder</label>
+            <input id="archive-folder" placeholder="./telegram_backup" value="./telegram_backup">
+          </div>
+          <button class="btn primary" id="load-archives">Load archives</button>
+          <div id="archive-list" class="archive-list"></div>
+        </aside>
+        <section class="content">
+          <div id="archive-detail" class="archive-empty">Select a channel to preview its messages and media.</div>
+        </section>
+      </div>
+    </div>
+  </div>
+  <script>
+    const archiveFolderInput = document.getElementById('archive-folder');
+    const archiveList = document.getElementById('archive-list');
+    const archiveDetail = document.getElementById('archive-detail');
+    let archives = [];
+    let activeName = null;
+
+    async function api(url) {
+      const res = await fetch(url);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+
+    function renderArchiveList(list) {
+      archiveList.innerHTML = '';
+      if (!list.length) {
+        archiveList.innerHTML = '<div class="archive-empty">No downloaded channels found yet.</div>';
+        return;
+      }
+      list.forEach(item => {
+        const el = document.createElement('div');
+        el.className = 'archive-item' + (item.safe_name === activeName ? ' active' : '');
+        el.innerHTML = `
+          <strong>${item.name || item.safe_name}</strong>
+          <div class="pill-row">
+            <span class="pill">${item.message_count || 0} msgs</span>
+            <span class="pill">${item.media_count || 0} media</span>
+          </div>
+        `;
+        el.addEventListener('click', () => loadArchive(item.safe_name));
+        archiveList.appendChild(el);
+      });
+    }
+
+    async function loadArchives() {
+      const folder = archiveFolderInput.value.trim() || './telegram_backup';
+      archiveList.innerHTML = '<div class="archive-empty">Loading...</div>';
+      try {
+        const data = await api(`/api/archives?folder=${encodeURIComponent(folder)}`);
+        archives = data.channels || [];
+        activeName = archives[0]?.safe_name || null;
+        renderArchiveList(archives);
+        if (activeName) loadArchive(activeName);
+      } catch (e) {
+        archiveList.innerHTML = `<div class="archive-empty">${e.message}</div>`;
+      }
+    }
+
+    async function loadArchive(name) {
+      activeName = name;
+      renderArchiveList(archives);
+      archiveDetail.innerHTML = '<div class="archive-empty">Loading messages...</div>';
+      try {
+        const data = await api(`/api/archive/${encodeURIComponent(name)}?folder=${encodeURIComponent(archiveFolderInput.value.trim() || './telegram_backup')}`);
+        const messages = data.messages || [];
+        const mediaCount = data.media_count || 0;
+        const textCount = data.text_count || 0;
+        archiveDetail.innerHTML = `
+          <div class="archive-card">
+            <h2>${data.name || name}</h2>
+            <div class="pill-row">
+              <span class="pill">${textCount} text messages</span>
+              <span class="pill">${mediaCount} media items</span>
+              <span class="pill">Downloaded ${data.downloaded_at || 'recently'}</span>
+            </div>
+            <div class="message-list">
+              ${messages.length ? messages.map(msg => `
+                <div class="message-card">
+                  <div class="meta">${msg.date || 'No date'} • ID ${msg.id}</div>
+                  <div>${(msg.text || '').replace(/\n/g, '<br>') || '<em>No text content</em>'}</div>
+                  ${msg.media && msg.media.length ? `<div class="media-row">${msg.media.map(item => `<span class="media-chip"><a href="/archive/file/${encodeURIComponent(name)}/${encodeURIComponent(item.path)}" target="_blank" rel="noopener">${item.name}</a></span>`).join('')}</div>` : ''}
+                </div>
+              `).join('') : '<div class="archive-empty">No messages were captured in this archive.</div>'}
+            </div>
+          </div>
+        `;
+      } catch (e) {
+        archiveDetail.innerHTML = `<div class="archive-empty">${e.message}</div>`;
+      }
+    }
+
+    document.getElementById('load-archives').addEventListener('click', loadArchives);
+    loadArchives();
+  </script>
+</body>
+</html>
